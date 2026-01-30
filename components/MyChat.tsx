@@ -45,11 +45,11 @@ export default function MyChat({
   const { callId } = useDiscordContext();
 
   if (!chatClient) {
-    return <div>Error, please try again later.</div>;
+    return;
   }
 
   if (!videoClient) {
-    return <div>Video Error, please try again later.</div>;
+    return;
   }
 
   return (
