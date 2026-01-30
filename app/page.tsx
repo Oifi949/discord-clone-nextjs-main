@@ -6,6 +6,7 @@ import { LoadingIndicator } from "stream-chat-react";
 import { useClerk } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
 import MyChat from "@/components/MyChat";
+import Image from "next/image";
 
 // const userId = '7cd445eb-9af2-4505-80a9-aa8543c3343f';
 // const userName = 'Harry Potter';
@@ -88,7 +89,7 @@ export default function Home() {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-[#1e1f22] text-gray-300">
         {" "}
-        <img
+        <Image
           src="https://tse1.mm.bing.net/th/id/OIP.pmUIYBMro9lJv-rUXPxmdAHaEK?rs=1&pid=ImgDetMain&o=7&rm=3"
           alt="App Logo"
           className="w-16 h-16 mb-6 animate-bounce"
