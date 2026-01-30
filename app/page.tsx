@@ -89,13 +89,6 @@ export default function Home() {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-[#1e1f22] text-gray-300">
         {" "}
-        <Image
-          src="https://tse1.mm.bing.net/th/id/OIP.pmUIYBMro9lJv-rUXPxmdAHaEK?rs=1&pid=ImgDetMain&o=7&rm=3"
-          alt="App Logo"
-          className="w-16 h-16 mb-6 animate-bounce"
-          width={16}
-          height={16}
-        />{" "}
         <div className="flex flex-col space-y-2">
           {" "}
           <div className="h-2 w-40 bg-purple-500 rounded animate-pulse"></div>{" "}
