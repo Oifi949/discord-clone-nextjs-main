@@ -17,7 +17,7 @@ export default function CallLayout(): JSX.Element {
   if (callingState !== CallingState.JOINED) {
     return (
       <div className="flex items-center justify-center h-full bg-[#1e1f22] text-gray-300">
-        <span className="animate-pulse">Connecting to call...</span>
+        <span className="animate-pulse">Joining call...</span>
       </div>
     );
   }
