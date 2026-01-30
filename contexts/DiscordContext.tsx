@@ -7,20 +7,43 @@ import { Channel, ChannelFilters, StreamChat } from "stream-chat";
 import { DefaultStreamChatGenerics } from "stream-chat-react";
 import { v4 as uuid } from "uuid";
 
+/**
+ * Define custom channel data fields
+ */
+type CustomChannelData = {
+  custom?: {
+    server?: string;
+    category?: string;
+  };
+};
+
+/**
+ * Extend Stream Chat generics with our custom channel data
+ */
+type CustomGenerics = DefaultStreamChatGenerics & {
+  channelType: CustomChannelData;
+};
+
+/**
+ * Discord context state
+ */
 type DiscordState = {
   server?: DiscordServer;
   callId: string | undefined;
-  channelsByCategories: Map<string, Array<Channel<DefaultStreamChatGenerics>>>;
-  changeServer: (server: DiscordServer | undefined, client: StreamChat) => void;
+  channelsByCategories: Map<string, Array<Channel<CustomGenerics>>>;
+  changeServer: (
+    server: DiscordServer | undefined,
+    client: StreamChat<CustomGenerics>,
+  ) => void;
   createServer: (
-    client: StreamChat,
+    client: StreamChat<CustomGenerics>,
     videoClient: StreamVideoClient,
     name: string,
     imageUrl: string,
     userIds: string[],
   ) => void;
   createChannel: (
-    client: StreamChat,
+    client: StreamChat<CustomGenerics>,
     name: string,
     category: string,
     userIds: string[],
@@ -47,15 +70,21 @@ const initialValue: DiscordState = {
 
 const DiscordContext = createContext<DiscordState>(initialValue);
 
-export const DiscordContextProvider: any = ({
+export const DiscordContextProvider = ({
   children,
 }: {
   children: React.ReactNode;
 }) => {
   const [myState, setMyState] = useState<DiscordState>(initialValue);
 
+  /**
+   * Load channels grouped by categories for a given server
+   */
   const changeServer = useCallback(
-    async (server: DiscordServer | undefined, client: StreamChat) => {
+    async (
+      server: DiscordServer | undefined,
+      client: StreamChat<CustomGenerics>,
+    ) => {
       const filters: ChannelFilters = {
         type: "messaging",
         members: { $in: [client.user?.id as string] },
@@ -73,23 +102,23 @@ export const DiscordContextProvider: any = ({
       const channels = await client.queryChannels(filters);
       const channelsByCategories = new Map<
         string,
-        Array<Channel<DefaultStreamChatGenerics>>
+        Array<Channel<CustomGenerics>>
       >();
 
       if (server) {
         const categories = new Set(
           channels
-            .filter((channel) => channel.data?.server === server.name)
-            .map((channel) => channel.data?.category),
+            .filter((channel) => channel.data?.custom?.server === server.name)
+            .map((channel) => channel.data?.custom?.category),
         );
 
         for (const category of Array.from(categories)) {
           channelsByCategories.set(
-            category,
+            category ?? "Uncategorized",
             channels.filter(
               (channel) =>
-                channel.data?.server === server.name &&
-                channel.data?.category === category,
+                channel.data?.custom?.server === server.name &&
+                channel.data?.custom?.category === category,
             ),
           );
         }
@@ -102,6 +131,9 @@ export const DiscordContextProvider: any = ({
     [setMyState],
   );
 
+  /**
+   * Create a new call (voice/video)
+   */
   const createCall = useCallback(
     async (
       client: StreamVideoClient,
@@ -111,16 +143,14 @@ export const DiscordContextProvider: any = ({
     ) => {
       const callId = uuid();
       const audioCall = client.call("default", callId);
-      const audioChannelMembers: MemberRequest[] = userIds.map((userId) => {
-        return {
-          user_id: userId,
-        };
-      });
+      const audioChannelMembers: MemberRequest[] = userIds.map((userId) => ({
+        user_id: userId,
+      }));
+
       try {
         const createdAudioCall = await audioCall.create({
           data: {
             custom: {
-              // serverId: server?.id,
               serverName: server?.name,
               callName: channelName,
             },
@@ -137,9 +167,12 @@ export const DiscordContextProvider: any = ({
     [],
   );
 
+  /**
+   * Create a new server (with a default "Welcome" channel)
+   */
   const createServer = useCallback(
     async (
-      client: StreamChat,
+      client: StreamChat<CustomGenerics>,
       videoClient: StreamVideoClient,
       name: string,
       imageUrl: string,
@@ -150,8 +183,10 @@ export const DiscordContextProvider: any = ({
         members: userIds,
         data: {
           image: imageUrl,
-          server: name,
-          category: "Text Channels",
+          custom: {
+            server: name,
+            category: "Text Channels",
+          },
         },
       });
 
@@ -174,24 +209,29 @@ export const DiscordContextProvider: any = ({
     [changeServer, createCall, myState.server],
   );
 
+  /**
+   * Create a new channel inside a server
+   */
   const createChannel = useCallback(
     async (
-      client: StreamChat,
+      client: StreamChat<CustomGenerics>,
       name: string,
       category: string,
       userIds: string[],
     ) => {
       if (client.userID) {
         const channel = client.channel("messaging", {
-          name: name,
+          name,
           members: userIds,
           data: {
-            server: myState.server?.name,
-            category: category,
+            custom: {
+              server: myState.server?.name,
+              category,
+            },
           },
         });
         try {
-          const response = await channel.create();
+          await channel.create();
         } catch (err) {
           console.log(err);
         }
@@ -200,11 +240,12 @@ export const DiscordContextProvider: any = ({
     [myState.server?.name],
   );
 
+  /**
+   * Set current call ID
+   */
   const setCall = useCallback(
     (callId: string | undefined) => {
-      setMyState((myState) => {
-        return { ...myState, callId };
-      });
+      setMyState((myState) => ({ ...myState, callId }));
     },
     [setMyState],
   );
@@ -213,11 +254,11 @@ export const DiscordContextProvider: any = ({
     server: myState.server,
     callId: myState.callId,
     channelsByCategories: myState.channelsByCategories,
-    changeServer: changeServer,
-    createServer: createServer,
-    createChannel: createChannel,
-    createCall: createCall,
-    setCall: setCall,
+    changeServer,
+    createServer,
+    createChannel,
+    createCall,
+    setCall,
   };
 
   return (
