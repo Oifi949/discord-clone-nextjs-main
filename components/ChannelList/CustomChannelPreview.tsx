@@ -2,14 +2,22 @@ import {
   ChannelPreviewUIComponentProps,
   useChatContext,
 } from "stream-chat-react";
+import { useNotifications } from "@/contexts/NotificationContext/NotificationContext";
+import { Trash2 } from "lucide-react";
+import { isAdmin } from "@/utils/permission";
 
 const CustomChannelPreview = (props: ChannelPreviewUIComponentProps) => {
   const { channel } = props;
-  const { setActiveChannel } = useChatContext();
+  const { setActiveChannel, client } = useChatContext();
+  const { unread, clearUnread } = useNotifications();
+
+  const channelId = channel.id;
+  const count = channelId ? (unread[channelId] ?? 0) : 0;
+
   return (
     <div
       className={`flex items-center mx-2 ${
-        props.channel.countUnread() > 0 ? "channel-container" : ""
+        channel.countUnread() > 0 ? "channel-container" : ""
       }`}
     >
       <button
@@ -21,6 +29,25 @@ const CustomChannelPreview = (props: ChannelPreviewUIComponentProps) => {
           {channel.data?.name || "Channel Preview"}
         </span>
       </button>
+
+      {channelId && isAdmin(channel, client.user!.id) && (
+        <button
+          onClick={() => channel.delete()}
+          className="text-red-400 hover:text-red-600"
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
+
+      {channelId && (
+        <button onClick={() => clearUnread(channelId)} className="relative">
+          {count > 0 && (
+            <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs rounded-full px-1">
+              {count}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 };

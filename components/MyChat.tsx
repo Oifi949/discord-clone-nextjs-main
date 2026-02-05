@@ -1,10 +1,11 @@
+"use client";
+
 import { useClient } from "@/hooks/useClient";
 import { User } from "stream-chat";
 import {
   Chat,
   Channel,
   ChannelList,
-  ChannelHeader,
   MessageList,
   MessageInput,
   Thread,
@@ -37,12 +38,14 @@ export default function MyChat({
     user,
     tokenOrProvider: token,
   });
+
   const videoClient = useVideoClient({
     apiKey,
     user,
     tokenOrProvider: token,
   });
-  const { callId } = useDiscordContext();
+
+  const { activeCall } = useDiscordContext();
 
   if (!chatClient) {
     return <div>Error, please try again later.</div>;
@@ -57,9 +60,11 @@ export default function MyChat({
       <Chat client={chatClient} theme="str-chat__theme-light">
         <section className="flex h-screen w-screen layout">
           <ServerList />
-          <ChannelList List={CustomChannelList} sendChannelsToList={true} />
-          {callId && <MyCall callId={callId} />}
-          {!callId && (
+          <ChannelList List={CustomChannelList} sendChannelsToList />
+
+          {activeCall && <MyCall call={activeCall} />}
+
+          {!activeCall && (
             <Channel
               Message={CustomMessage}
               Input={MessageComposer}
@@ -69,7 +74,7 @@ export default function MyChat({
             >
               <Window>
                 <MessageList />
-                <MessageInput />
+                <MessageInput focus grow />
               </Window>
               <Thread />
             </Channel>

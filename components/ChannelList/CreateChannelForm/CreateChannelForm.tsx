@@ -1,40 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useChatContext, Channel } from "stream-chat-react";
+import { DefaultStreamChatGenerics, useChatContext } from "stream-chat-react";
+import { ChannelSortBase, Channel as StreamChannel } from "stream-chat";
+import VoiceStatusBar from "@/components/VoiceStatusBar/VoiceStatusBar";
 import { useStreamVideoClient, Call } from "@stream-io/video-react-sdk";
 
 /**
- * MENTAL MODEL
+ * DISCORD MENTAL MODEL
  *
- * - Channels come from Stream Chat (persistent)
+ * - Channels = persistent (Stream Chat)
  * - Voice channels are marked with: channel.data.isVoice === true
- * - Calls come from Stream Video (ephemeral)
- * - Calls are created ONLY when someone joins
+ * - Calls = ephemeral (Stream Video)
+ * - Calls are created ONLY when joining
  */
 
 export default function DiscordLikeChannelsPage() {
   const { client } = useChatContext();
   const videoClient = useStreamVideoClient();
 
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [channels, setChannels] = useState<StreamChannel[]>([]);
   const [activeCall, setActiveCall] = useState<Call | null>(null);
   const [connectionState, setConnectionState] = useState<
     "idle" | "connecting" | "connected"
   >("idle");
 
-  /* --------------------------------------------------
-   * LOAD CHANNELS (TEXT + VOICE)
-   * -------------------------------------------------- */
+  /* --------------------------------------------
+   * LOAD CHANNELS
+   * -------------------------------------------- */
   useEffect(() => {
     if (!client) return;
 
     async function loadChannels() {
-      const res = await client.queryChannels(
-        { type: "messaging" },
-        [{ field: "created_at", direction: 1 }],
-        { watch: true },
-      );
+      const filter = { type: "messaging" };
+      const sort: ChannelSortBase<DefaultStreamChatGenerics>[] = [
+        {
+          created_at: 1,
+        },
+      ];
+      const options = { watch: true };
+
+      const res = await client.queryChannels(filter, sort, options);
 
       setChannels(res);
     }
@@ -42,9 +48,9 @@ export default function DiscordLikeChannelsPage() {
     loadChannels();
   }, [client]);
 
-  /* --------------------------------------------------
+  /* --------------------------------------------
    * CREATE CHANNEL (TEXT OR VOICE)
-   * -------------------------------------------------- */
+   * -------------------------------------------- */
   async function createChannel(
     name: string,
     category: string,
@@ -55,19 +61,19 @@ export default function DiscordLikeChannelsPage() {
     const channel = client.channel("messaging", name, {
       name,
       category,
-      isVoice, // 🔑 THIS IS THE KEY
+      isVoice,
     });
 
     await channel.create();
   }
 
-  /* --------------------------------------------------
-   * JOIN VOICE CHANNEL (CREATE CALL LAZILY)
-   * -------------------------------------------------- */
-  async function joinVoiceChannel(channel: Channel) {
-    if (!videoClient) return;
+  /* --------------------------------------------
+   * JOIN VOICE CHANNEL
+   * -------------------------------------------- */
+  async function joinVoiceChannel(channel: StreamChannel) {
+    if (!videoClient || !channel.id) return;
 
-    const callId = channel.id; // 1:1 mapping (important)
+    const callId = channel.id;
     const call = videoClient.call("default", callId);
 
     try {
@@ -78,11 +84,10 @@ export default function DiscordLikeChannelsPage() {
         await activeCall.leave();
       }
 
-      // Create call ONLY if it doesn't exist
       await call.join({ create: true });
 
       // Discord behavior
-      call.microphone.disable(); // join muted
+      call.microphone.disable();
 
       setActiveCall(call);
       setConnectionState("connected");
@@ -92,9 +97,9 @@ export default function DiscordLikeChannelsPage() {
     }
   }
 
-  /* --------------------------------------------------
+  /* --------------------------------------------
    * LEAVE VOICE CHANNEL
-   * -------------------------------------------------- */
+   * -------------------------------------------- */
   async function leaveVoiceChannel() {
     if (!activeCall) return;
 
@@ -103,9 +108,9 @@ export default function DiscordLikeChannelsPage() {
     setConnectionState("idle");
   }
 
-  /* --------------------------------------------------
+  /* --------------------------------------------
    * RENDER
-   * -------------------------------------------------- */
+   * -------------------------------------------- */
   return (
     <div className="flex h-screen">
       {/* SIDEBAR */}
@@ -150,7 +155,7 @@ export default function DiscordLikeChannelsPage() {
             })}
         </div>
 
-        {/* QUICK CREATE (DEMO) */}
+        {/* QUICK CREATE */}
         <div className="pt-4 space-y-2">
           <button
             onClick={() => createChannel("general-chat", "General", false)}
@@ -168,8 +173,8 @@ export default function DiscordLikeChannelsPage() {
         </div>
       </aside>
 
-      {/* MAIN AREA */}
-      <main className="flex-1 p-8">
+      {/* MAIN */}
+      <main className="flex-1 p-8 pb-20">
         {!activeCall && (
           <p className="text-gray-500">Join a voice channel to start talking</p>
         )}
@@ -189,6 +194,9 @@ export default function DiscordLikeChannelsPage() {
           </div>
         )}
       </main>
+      {activeCall && (
+        <VoiceStatusBar call={activeCall} onLeave={leaveVoiceChannel} />
+      )}
     </div>
   );
 }

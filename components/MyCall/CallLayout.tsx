@@ -9,24 +9,25 @@ import {
 import "@stream-io/video-react-sdk/dist/css/styles.css";
 
 export default function CallLayout(): JSX.Element {
-  const { setCall } = useDiscordContext();
+  const { leaveVoiceChannel } = useDiscordContext();
   const { useCallCallingState, useParticipantCount } = useCallStateHooks();
+
   const participantCount = useParticipantCount();
   const callingState = useCallCallingState();
 
   if (callingState !== CallingState.JOINED) {
-    return <div>Loading...</div>;
+    return <div>Connecting to voice…</div>;
   }
 
   return (
     <StreamTheme>
-      <h2>Participants: {participantCount}</h2>
+      <h2 className="text-sm text-gray-400 mb-2">
+        Participants: {participantCount}
+      </h2>
+
       <SpeakerLayout participantsBarPosition="bottom" />
-      <CallControls
-        onLeave={() => {
-          setCall(undefined);
-        }}
-      />
+
+      <CallControls onLeave={leaveVoiceChannel} />
     </StreamTheme>
   );
 }

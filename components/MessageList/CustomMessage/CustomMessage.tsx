@@ -6,6 +6,7 @@ import {
 import Image from "next/image";
 import { useState } from "react";
 import MessageOptions from "./MessageOptions";
+import MessageActions from "../MessageActions/MessageActions";
 
 export default function CustomMessage(): JSX.Element {
   const { message } = useMessageContext();
@@ -29,8 +30,8 @@ export default function CustomMessage(): JSX.Element {
           <MessageOptions showEmojiReactions={setShowReactions} />
         )}
         {showReactions && (
-          <div className="absolute">
-            <ReactionSelector />
+          <div className="absolute right-2 top-2 hidden group-hover:block">
+            <MessageActions />
           </div>
         )}
         <div className="space-x-2">
