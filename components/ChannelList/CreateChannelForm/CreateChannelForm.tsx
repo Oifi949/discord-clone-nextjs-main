@@ -1,146 +1,194 @@
-import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { useRef, useState, useEffect, useCallback } from "react";
-import { useChatContext } from "stream-chat-react";
-import { useStreamVideoClient } from "@stream-io/video-react-sdk";
-import { useDiscordContext } from "@/contexts/DiscordContext";
-import { UserObject } from "@/model/UserObject";
-import UserRow from "./UserRow";
-import { CloseMark, Speaker } from "../Icons";
+"use client";
 
-type FormState = {
-  channelType: "text" | "voice";
-  channelName: string;
-  category: string;
-  users: UserObject[];
-};
+import { useEffect, useState } from "react";
+import { useChatContext, Channel } from "stream-chat-react";
+import { useStreamVideoClient, Call } from "@stream-io/video-react-sdk";
 
-export default function CreateChannelForm(): JSX.Element {
-  const params = useSearchParams();
-  const showCreateChannelForm = params.get("createChannel");
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const router = useRouter();
+/**
+ * MENTAL MODEL
+ *
+ * - Channels come from Stream Chat (persistent)
+ * - Voice channels are marked with: channel.data.isVoice === true
+ * - Calls come from Stream Video (ephemeral)
+ * - Calls are created ONLY when someone joins
+ */
 
+export default function DiscordLikeChannelsPage() {
   const { client } = useChatContext();
   const videoClient = useStreamVideoClient();
-  const { server, createChannel, createCall } = useDiscordContext();
 
-  const initialState: FormState = {
-    channelType: "text",
-    channelName: "",
-    category: "",
-    users: [],
-  };
-  const [formData, setFormData] = useState<FormState>(initialState);
-  const [users, setUsers] = useState<UserObject[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [activeCall, setActiveCall] = useState<Call | null>(null);
+  const [connectionState, setConnectionState] = useState<
+    "idle" | "connecting" | "connected"
+  >("idle");
 
-  const loadUsers = useCallback(async () => {
-    const response = await fetch("/api/users");
-    const data = (await response.json())?.data as UserObject[];
-    if (data) setUsers(data);
-  }, []);
-
+  /* --------------------------------------------------
+   * LOAD CHANNELS (TEXT + VOICE)
+   * -------------------------------------------------- */
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    if (!client) return;
 
-  useEffect(() => {
-    const category = params.get("category");
-    const isVoice = params.get("isVoice");
-    setFormData({
-      channelType: isVoice ? "voice" : "text",
-      channelName: "",
-      category: category ?? "",
-      users: [],
-    });
-  }, [params]);
-
-  useEffect(() => {
-    if (showCreateChannelForm && dialogRef.current) {
-      dialogRef.current.showModal();
-    } else {
-      dialogRef.current?.close();
-    }
-  }, [showCreateChannelForm]);
-
-  function buttonDisabled(): boolean {
-    return (
-      !formData.channelName || !formData.category || formData.users.length <= 1
-    );
-  }
-
-  function userChanged(user: UserObject, checked: boolean) {
-    setFormData({
-      ...formData,
-      users: checked
-        ? [...formData.users, user]
-        : formData.users.filter((u) => u.id !== user.id),
-    });
-  }
-
-  function createClicked() {
-    if (formData.channelType === "text") {
-      createChannel(
-        client,
-        formData.channelName,
-        formData.category,
-        formData.users.map((u) => u.id),
+    async function loadChannels() {
+      const res = await client.queryChannels(
+        { type: "messaging" },
+        [{ field: "created_at", direction: 1 }],
+        { watch: true },
       );
-    } else if (formData.channelType === "voice" && videoClient && server) {
-      createCall(
-        videoClient,
-        server,
-        formData.channelName,
-        formData.users.map((u) => u.id),
-      );
+
+      setChannels(res);
     }
-    setFormData(initialState);
-    router.replace("/");
+
+    loadChannels();
+  }, [client]);
+
+  /* --------------------------------------------------
+   * CREATE CHANNEL (TEXT OR VOICE)
+   * -------------------------------------------------- */
+  async function createChannel(
+    name: string,
+    category: string,
+    isVoice: boolean,
+  ) {
+    if (!client) return;
+
+    const channel = client.channel("messaging", name, {
+      name,
+      category,
+      isVoice, // 🔑 THIS IS THE KEY
+    });
+
+    await channel.create();
   }
 
-  return (
-    <dialog
-      ref={dialogRef}
-      className="fixed inset-0 z-50 w-full max-w-lg mx-auto my-20 rounded-lg shadow-xl bg-white overflow-hidden animate-fadeIn"
-    >
-      {/* header, form, footer same as before */}
-    </dialog>
-  );
-}
+  /* --------------------------------------------------
+   * JOIN VOICE CHANNEL (CREATE CALL LAZILY)
+   * -------------------------------------------------- */
+  async function joinVoiceChannel(channel: Channel) {
+    if (!videoClient) return;
 
-type ChannelTypeCardProps = {
-  id: string;
-  label: string;
-  description: string;
-  icon: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-};
+    const callId = channel.id; // 1:1 mapping (important)
+    const call = videoClient.call("default", callId);
 
-function ChannelTypeCard({
-  id,
-  label,
-  description,
-  icon,
-  active,
-  onClick,
-}: ChannelTypeCardProps) {
+    try {
+      setConnectionState("connecting");
+
+      // Discord rule: only one active voice channel
+      if (activeCall && activeCall.id !== callId) {
+        await activeCall.leave();
+      }
+
+      // Create call ONLY if it doesn't exist
+      await call.join({ create: true });
+
+      // Discord behavior
+      call.microphone.disable(); // join muted
+
+      setActiveCall(call);
+      setConnectionState("connected");
+    } catch (err) {
+      console.error("Failed to join voice", err);
+      setConnectionState("idle");
+    }
+  }
+
+  /* --------------------------------------------------
+   * LEAVE VOICE CHANNEL
+   * -------------------------------------------------- */
+  async function leaveVoiceChannel() {
+    if (!activeCall) return;
+
+    await activeCall.leave();
+    setActiveCall(null);
+    setConnectionState("idle");
+  }
+
+  /* --------------------------------------------------
+   * RENDER
+   * -------------------------------------------------- */
   return (
-    <button
-      id={id}
-      type="button"
-      onClick={onClick}
-      className={`flex-1 flex items-center gap-3 p-3 rounded-md border transition-colors ${
-        active
-          ? "border-indigo-600 bg-indigo-50"
-          : "border-gray-200 hover:bg-gray-100"
-      }`}
-    >
-      {icon}
-      <div className="text-left">
-        <p className="font-semibold text-gray-800">{label}</p>
-        <p className="text-xs text-gray-500">{description}</p>
-      </div>
-    </button>
+    <div className="flex h-screen">
+      {/* SIDEBAR */}
+      <aside className="w-72 bg-gray-100 p-4 space-y-6">
+        <h2 className="font-bold uppercase text-sm text-gray-500">Channels</h2>
+
+        {/* TEXT CHANNELS */}
+        <div>
+          <p className="text-xs uppercase text-gray-400 mb-1">Text</p>
+          {channels
+            .filter((c) => !c.data?.isVoice)
+            .map((channel) => (
+              <div key={channel.id} className="px-2 py-1 text-sm">
+                # {channel.data?.name}
+              </div>
+            ))}
+        </div>
+
+        {/* VOICE CHANNELS */}
+        <div>
+          <p className="text-xs uppercase text-gray-400 mb-1">Voice</p>
+          {channels
+            .filter((c) => c.data?.isVoice)
+            .map((channel) => {
+              const isActive = activeCall?.id === channel.id;
+
+              return (
+                <button
+                  key={channel.id}
+                  onClick={() => joinVoiceChannel(channel)}
+                  className={`w-full flex justify-between items-center px-2 py-1 rounded
+                    ${
+                      isActive
+                        ? "bg-green-200 font-semibold"
+                        : "hover:bg-gray-200"
+                    }`}
+                >
+                  <span>🔊 {channel.data?.name}</span>
+                  {isActive && <span className="text-xs">LIVE</span>}
+                </button>
+              );
+            })}
+        </div>
+
+        {/* QUICK CREATE (DEMO) */}
+        <div className="pt-4 space-y-2">
+          <button
+            onClick={() => createChannel("general-chat", "General", false)}
+            className="w-full bg-white border px-2 py-1 text-sm"
+          >
+            + Text Channel
+          </button>
+
+          <button
+            onClick={() => createChannel("general-voice", "General", true)}
+            className="w-full bg-white border px-2 py-1 text-sm"
+          >
+            + Voice Channel
+          </button>
+        </div>
+      </aside>
+
+      {/* MAIN AREA */}
+      <main className="flex-1 p-8">
+        {!activeCall && (
+          <p className="text-gray-500">Join a voice channel to start talking</p>
+        )}
+
+        {activeCall && (
+          <div className="space-y-4">
+            <h1 className="text-2xl font-bold">🎤 Voice Connected</h1>
+
+            <p className="text-sm text-gray-500">State: {connectionState}</p>
+
+            <button
+              onClick={leaveVoiceChannel}
+              className="bg-red-500 text-white px-4 py-2 rounded"
+            >
+              Leave Voice
+            </button>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

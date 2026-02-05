@@ -45,11 +45,11 @@ export default function MyChat({
   const { callId } = useDiscordContext();
 
   if (!chatClient) {
-    return;
+    return <div>Error, please try again later.</div>;
   }
 
   if (!videoClient) {
-    return;
+    return <div>Video Error, please try again later.</div>;
   }
 
   return (
@@ -76,7 +76,6 @@ export default function MyChat({
           )}
         </section>
       </Chat>
-      y
     </StreamVideo>
   );
 }

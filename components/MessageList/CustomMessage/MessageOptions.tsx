@@ -7,30 +7,18 @@ export default function MessageOptions({
   showEmojiReactions: Dispatch<SetStateAction<boolean>>;
 }): JSX.Element {
   return (
-    <div className="absolute flex items-center gap-1 -top-6 right-2 rounded-md bg-[#1e1f22] shadow-md p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-      {/* Emoji Reaction */}
+    <div className="absolute flex items-center -top-4 right-2 rounded-md bg-gray-50 border-2 border-gray-200">
       <button
-        aria-label="Add reaction"
-        className="p-2 rounded-md hover:bg-[#2e2f33] text-gray-300 hover:text-white transition-colors"
+        className="p-1 transition-colors duration-200 ease-in-out hover:bg-gray-200"
         onClick={() => showEmojiReactions((currentValue) => !currentValue)}
       >
-        <Emoji className="w-5 h-5" />
+        <Emoji className="w-6 h-6" />
       </button>
-
-      {/* Reply */}
-      <button
-        aria-label="Reply"
-        className="p-2 rounded-md hover:bg-[#2e2f33] text-gray-300 hover:text-white transition-colors"
-      >
-        <ArrowUturnLeft className="w-5 h-5" />
+      <button className="p-1 transition-colors duration-200 ease-in-out hover:bg-gray-200">
+        <ArrowUturnLeft className="w-6 h-6" />
       </button>
-
-      {/* Thread */}
-      <button
-        aria-label="Start thread"
-        className="p-2 rounded-md hover:bg-[#2e2f33] text-gray-300 hover:text-white transition-colors"
-      >
-        <Thread className="w-5 h-5" />
+      <button className="p-1 transition-colors duration-200 ease-in-out hover:bg-gray-200">
+        <Thread className="w-6 h-6" />
       </button>
     </div>
   );

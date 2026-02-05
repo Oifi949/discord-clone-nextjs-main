@@ -7,108 +7,72 @@ import ChannelListMenuRow from "../TopBar/ChannelListMenuRow";
 
 export default function ChannelListBottomBar(): JSX.Element {
   const { client } = useChatContext();
-  const { signOut } = useClerk();
-
   const [micActive, setMicActive] = useState(false);
   const [audioActive, setAudioActive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const user = client.user;
+  const { signOut } = useClerk();
 
   return (
-    <div className="mt-auto p-3 bg-gray-100 w-full flex items-center gap-3 relative border-t border-gray-200">
-      {/* User Profile Button */}
+    <div className="mt-auto p-2 bg-light-gray w-full flex items-center space-x-3 relative">
       <button
-        className="flex flex-1 items-center gap-2 p-2 rounded-md hover:bg-gray-200 transition-colors"
-        onClick={() => setMenuOpen((prev) => !prev)}
+        className="flex flex-1 items-center space-x-2 p-1 pr-2 rounded-md hover:bg-hover-gray"
+        onClick={() => setMenuOpen((currentValue) => !currentValue)}
       >
-        {user?.image && (
+        {client.user?.image && (
           <div
-            className={`relative ${user?.online ? "ring-2 ring-green-400 rounded-full" : ""}`}
+            className={`relative ${client.user?.online ? "online-icon" : ""}`}
           >
             <Image
-              src={user.image ?? "https://thispersondoesnotexist.com/"}
-              alt="User avatar"
+              src={client.user?.image ?? "https://thispersondoesnotexist.com/"}
+              alt="User image"
               width={36}
               height={36}
               className="rounded-full"
             />
           </div>
         )}
-        <div className="flex flex-col items-start">
-          <span className="text-sm font-medium text-gray-800 truncate">
-            {user?.name}
+        <p className="flex flex-col items-start space-y-1">
+          <span className="block max-w-24 text-gray-700 text-sm font-medium -mb-1.5 tracking-tight text-ellipsis overflow-x-clip">
+            {client.user?.name}
           </span>
-          <span className="text-xs text-gray-500">
-            {user?.online ? "Online" : "Offline"}
+          <span className="text-xs text-gray-500 inline-block">
+            {client.user?.online ? "Online" : "Offline"}
           </span>
-        </div>
+        </p>
       </button>
-
-      {/* Mic Toggle */}
-      <IconToggleButton
-        active={micActive}
-        onClick={() => setMicActive((prev) => !prev)}
-        icon={<Mic />}
-        label="Toggle microphone"
-      />
-
-      {/* Speaker Toggle */}
-      <IconToggleButton
-        active={audioActive}
-        onClick={() => setAudioActive((prev) => !prev)}
-        icon={<Speaker />}
-        label="Toggle audio"
-      />
-
-      {/* Settings */}
       <button
-        aria-label="Settings"
-        className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-200 transition-colors text-gray-700"
+        className={`w-7 h-7 p-1 flex items-center justify-center relative rounded-lg hover:bg-gray-300 transition-all duration-100 ease-in-out ${
+          !micActive ? "inactive-icon text-red-400" : "text-gray-700"
+        }`}
+        onClick={() => setMicActive((currentValue) => !currentValue)}
       >
-        <Gear className="w-5 h-5" />
+        <Mic />
       </button>
-
-      {/* Dropdown Menu */}
+      <button
+        className={`w-7 h-7 p-1 flex items-center justify-center relative rounded-lg hover:bg-gray-300 transition-all duration-100 ease-in-out ${
+          !audioActive ? "inactive-icon text-red-400" : "text-gray-700"
+        }`}
+        onClick={() => setAudioActive((currentValue) => !currentValue)}
+      >
+        <Speaker />
+      </button>
+      <button className="w-7 h-7 p-1 flex items-center justify-center relative rounded-md hover:bg-gray-300 transition-all duration-100 ease-in-out text-gray-700">
+        <Gear className="w-full h-full" />
+      </button>
       {menuOpen && (
-        <div className="absolute bottom-14 left-2 w-56 bg-white rounded-md shadow-lg border border-gray-200">
-          <button className="w-full text-left" onClick={() => signOut()}>
-            <ChannelListMenuRow
-              name="Sign out"
-              icon={<LeaveServer />}
-              bottomBorder={false}
-              red
-            />
-          </button>
-        </div>
+        <button
+          className="absolute -top-12 -left-1 w-52 p-2 bg-white rounded-md shadow-md"
+          onClick={() => signOut()}
+        >
+          <ChannelListMenuRow
+            name="Sign out"
+            icon={<LeaveServer />}
+            bottomBorder={false}
+            red
+          />
+        </button>
       )}
     </div>
-  );
-}
-
-/** Reusable toggle button for mic/speaker */
-function IconToggleButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      aria-label={label}
-      className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors ${
-        active
-          ? "bg-gray-200 text-gray-700"
-          : "bg-red-100 text-red-500 hover:bg-red-200"
-      }`}
-      onClick={onClick}
-    >
-      {icon}
-    </button>
   );
 }
