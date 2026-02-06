@@ -1,19 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DefaultStreamChatGenerics, useChatContext } from "stream-chat-react";
-import { ChannelSortBase, Channel as StreamChannel } from "stream-chat";
-import VoiceStatusBar from "@/components/VoiceStatusBar/VoiceStatusBar";
+import { useChatContext } from "stream-chat-react";
+import type { Channel as StreamChannel } from "stream-chat";
 import { useStreamVideoClient, Call } from "@stream-io/video-react-sdk";
-
-/**
- * DISCORD MENTAL MODEL
- *
- * - Channels = persistent (Stream Chat)
- * - Voice channels are marked with: channel.data.isVoice === true
- * - Calls = ephemeral (Stream Video)
- * - Calls are created ONLY when joining
- */
+import VoiceStatusBar from "@/components/VoiceStatusBar/VoiceStatusBar";
 
 export default function DiscordLikeChannelsPage() {
   const { client } = useChatContext();
@@ -32,16 +23,11 @@ export default function DiscordLikeChannelsPage() {
     if (!client) return;
 
     async function loadChannels() {
-      const filter = { type: "messaging" };
-      const sort: ChannelSortBase<DefaultStreamChatGenerics>[] = [
-        {
-          created_at: 1,
-        },
-      ];
-      const options = { watch: true };
-
-      const res = await client.queryChannels(filter, sort, options);
-
+      const res = await client.queryChannels(
+        { type: "messaging", members: { $in: [client.userID!] } },
+        { created_at: 1 },
+        { watch: true },
+      );
       setChannels(res);
     }
 
@@ -49,22 +35,19 @@ export default function DiscordLikeChannelsPage() {
   }, [client]);
 
   /* --------------------------------------------
-   * CREATE CHANNEL (TEXT OR VOICE)
+   * CREATE CHANNEL
    * -------------------------------------------- */
-  async function createChannel(
-    name: string,
-    category: string,
-    isVoice: boolean,
-  ) {
+  async function createChannel(name: string, isVoice = false) {
     if (!client) return;
 
-    const channel = client.channel("messaging", name, {
+    const channel = client.channel("messaging", {
       name,
-      category,
       isVoice,
+      members: [client.userID!],
     });
 
     await channel.create();
+    setChannels((prev) => [...prev, channel]);
   }
 
   /* --------------------------------------------
@@ -73,100 +56,81 @@ export default function DiscordLikeChannelsPage() {
   async function joinVoiceChannel(channel: StreamChannel) {
     if (!videoClient || !channel.id) return;
 
-    const callId = channel.id;
-    const call = videoClient.call("default", callId);
-
     try {
       setConnectionState("connecting");
 
-      // Discord rule: only one active voice channel
-      if (activeCall && activeCall.id !== callId) {
+      if (activeCall) {
         await activeCall.leave();
       }
 
+      const call = videoClient.call("default", channel.id);
       await call.join({ create: true });
-
-      // Discord behavior
       call.microphone.disable();
 
       setActiveCall(call);
       setConnectionState("connected");
     } catch (err) {
-      console.error("Failed to join voice", err);
+      console.error("Join voice failed", err);
       setConnectionState("idle");
     }
   }
 
-  /* --------------------------------------------
-   * LEAVE VOICE CHANNEL
-   * -------------------------------------------- */
   async function leaveVoiceChannel() {
     if (!activeCall) return;
-
     await activeCall.leave();
     setActiveCall(null);
     setConnectionState("idle");
   }
 
   /* --------------------------------------------
-   * RENDER
+   * UI
    * -------------------------------------------- */
   return (
-    <div className="relative flex h-screen w-64 flex-col bg-[#2b2d31]">
+    <div className="flex h-screen bg-[#313338] text-gray-200">
       {/* SIDEBAR */}
-      <aside className="w-72 bg-gray-100 p-4 space-y-6">
-        <h2 className="font-bold uppercase text-sm text-gray-500">Channels</h2>
+      <aside className="w-64 bg-[#2b2d31] p-4 space-y-4">
+        <h2 className="text-xs font-bold uppercase text-gray-400">Channels</h2>
 
-        {/* TEXT CHANNELS */}
+        {/* TEXT */}
         <div>
-          <p className="text-xs uppercase text-gray-400 mb-1">Text</p>
+          <p className="text-xs uppercase text-gray-500 mb-1">Text</p>
           {channels
             .filter((c) => !c.data?.isVoice)
-            .map((channel) => (
-              <div key={channel.id} className="px-2 py-1 text-sm">
-                # {channel.data?.name}
+            .map((c) => (
+              <div key={c.id} className="px-2 py-1 rounded hover:bg-[#3f4147]">
+                # {c.data?.name}
               </div>
             ))}
         </div>
 
-        {/* VOICE CHANNELS */}
+        {/* VOICE */}
         <div>
-          <p className="text-xs uppercase text-gray-400 mb-1">Voice</p>
+          <p className="text-xs uppercase text-gray-500 mb-1">Voice</p>
           {channels
             .filter((c) => c.data?.isVoice)
-            .map((channel) => {
-              const isActive = activeCall?.id === channel.id;
-
-              return (
-                <button
-                  key={channel.id}
-                  onClick={() => joinVoiceChannel(channel)}
-                  className={`w-full flex justify-between items-center px-2 py-1 rounded
-                    ${
-                      isActive
-                        ? "bg-green-200 font-semibold"
-                        : "hover:bg-gray-200"
-                    }`}
-                >
-                  <span>🔊 {channel.data?.name}</span>
-                  {isActive && <span className="text-xs">LIVE</span>}
-                </button>
-              );
-            })}
+            .map((c) => (
+              <button
+                key={c.id}
+                onClick={() => joinVoiceChannel(c)}
+                className="w-full text-left px-2 py-1 rounded hover:bg-[#3f4147]"
+              >
+                🔊 {c.data?.name}
+              </button>
+            ))}
         </div>
 
-        {/* QUICK CREATE */}
+        {/* CREATE */}
         <div className="pt-4 space-y-2">
           <button
-            onClick={() => createChannel("general-chat", "General", false)}
-            className="w-full bg-white border px-2 py-1 text-sm"
+            onClick={() => createChannel("new-text")}
+            className="w-full bg-[#3f4147] px-2 py-1 rounded text-sm"
           >
             + Text Channel
           </button>
 
           <button
-            onClick={() => createChannel("general-voice", "General", true)}
-            className="w-full bg-white border px-2 py-1 text-sm"
+            onClick={() => createChannel("new-voice", true)}
+            className="w-full bg-[#3f4147] px-2 py-1 rounded text-sm"
           >
             + Voice Channel
           </button>
@@ -174,26 +138,25 @@ export default function DiscordLikeChannelsPage() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 p-8 pb-20 overflow-y-auto">
+      <main className="flex-1 p-6 pb-24">
         {!activeCall && (
-          <p className="text-gray-500">Join a voice channel to start talking</p>
+          <p className="text-gray-400">Join a voice channel to start talking</p>
         )}
 
         {activeCall && (
-          <div className="space-y-4">
-            <h1 className="text-2xl font-bold">🎤 Voice Connected</h1>
-
-            <p className="text-sm text-gray-500">State: {connectionState}</p>
-
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold">🎙 Voice Connected</h1>
+            <p className="text-sm text-gray-400">State: {connectionState}</p>
             <button
               onClick={leaveVoiceChannel}
-              className="bg-red-500 text-white px-4 py-2 rounded"
+              className="bg-red-600 px-4 py-2 rounded"
             >
-              Leave Voice
+              Leave
             </button>
           </div>
         )}
       </main>
+
       {activeCall && (
         <VoiceStatusBar call={activeCall} onLeave={leaveVoiceChannel} />
       )}
