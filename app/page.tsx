@@ -103,16 +103,28 @@ export default function Home() {
   return <MyChat {...myState} />;
 
   async function getUserToken(userId: string, userName: string) {
+    // try {
+
+    // } catch (error) {
+
+    // }
     const response = await fetch("/api/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        userId: userId,
-      }),
+      body: JSON.stringify({ userId }),
     });
-    const responseBody = await response.json();
+
+    const raw = await response.text();
+    console.log("STATUS:", response.status);
+    console.log("RAW RESPONSE:", raw);
+
+    if (!response.ok) {
+      throw new Error("Token request failed");
+    }
+
+    const responseBody = JSON.parse(raw);
     const token = responseBody.token;
 
     if (!token) {

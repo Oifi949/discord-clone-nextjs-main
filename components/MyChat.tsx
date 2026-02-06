@@ -13,7 +13,7 @@ import {
 } from "stream-chat-react";
 
 import CustomChannelList from "@/components/ChannelList/CustomChannelList";
-import ServerList from "@/components/ServerList/ServerList";
+import ServerList, { ServerProvider } from "@/components/ServerList/ServerList";
 import MessageComposer from "@/components/MessageList/MessageComposer/MessageComposer";
 import CustomDateSeparator from "@/components/MessageList/CustomDateSeparator/CustomDateSeparator";
 import CustomMessage from "@/components/MessageList/CustomMessage/CustomMessage";
@@ -48,19 +48,21 @@ export default function MyChat({
   const { activeCall } = useDiscordContext();
 
   if (!chatClient) {
-    return <div>Error, please try again later.</div>;
+    return;
   }
 
   if (!videoClient) {
-    return <div>Video Error, please try again later.</div>;
+    return;
   }
 
   return (
     <StreamVideo client={videoClient}>
       <Chat client={chatClient} theme="str-chat__theme-light">
         <section className="flex h-screen w-screen layout">
-          <ServerList />
-          <ChannelList List={CustomChannelList} sendChannelsToList />
+          <ServerProvider server={{ name: "main" }}>
+            <ServerList />
+            <ChannelList List={CustomChannelList} sendChannelsToList />
+          </ServerProvider>
 
           {activeCall && <MyCall call={activeCall} />}
 

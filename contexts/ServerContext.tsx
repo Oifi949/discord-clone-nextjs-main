@@ -11,7 +11,7 @@ import { StreamVideoClient } from "@stream-io/video-react-sdk";
 
 type ChannelsByCategory = Map<string, Channel<DefaultStreamChatGenerics>[]>;
 
-export type Server = {
+type Server = {
   id: string;
   name: string;
   image?: string;
@@ -28,11 +28,6 @@ type ServerContextType = {
     serverImage: string,
     members: string[],
   ) => Promise<void>;
-
-  changeServer: (
-    server: Server | null,
-    chatClient: StreamChat,
-  ) => Promise<void>;
 };
 
 /* ----------------------------------
@@ -46,63 +41,16 @@ const ServerContext = createContext<ServerContextType | null>(null);
  * ---------------------------------- */
 
 export function ServerProvider({ children }: { children: ReactNode }) {
-  const [server, setServer] = useState<Server | null>(null);
-  const [channelsByCategories, setChannelsByCategories] =
-    useState<ChannelsByCategory>(new Map());
+  const [server, setServer] = useState<Server | null>({
+    id: "default",
+    name: "My Server",
+  });
+
+  const [channelsByCategories] = useState<ChannelsByCategory>(new Map());
 
   /* ----------------------------------
-   * HELPERS
+   * CREATE SERVER (DISCORD STYLE)
    * ---------------------------------- */
-
-  function groupByCategory(
-    channels: Channel<DefaultStreamChatGenerics>[],
-  ): ChannelsByCategory {
-    const map = new Map<string, Channel<DefaultStreamChatGenerics>[]>();
-
-    channels.forEach((channel) => {
-      const category = (channel.data?.category as string) ?? "Text Channels";
-
-      if (!map.has(category)) {
-        map.set(category, []);
-      }
-
-      map.get(category)!.push(channel);
-    });
-
-    return map;
-  }
-
-  /* ----------------------------------
-   * CHANGE SERVER
-   * ---------------------------------- */
-
-  async function changeServer(
-    nextServer: Server | null,
-    chatClient: StreamChat,
-  ) {
-    setServer(nextServer);
-
-    if (!nextServer) {
-      setChannelsByCategories(new Map());
-      return;
-    }
-
-    const channels = await chatClient.queryChannels(
-      {
-        type: "messaging",
-        members: { $in: [chatClient.userID as string] },
-        "data.server": { $eq: nextServer.name },
-      },
-      { last_message_at: -1 },
-    );
-
-    setChannelsByCategories(groupByCategory(channels));
-  }
-
-  /* ----------------------------------
-   * CREATE SERVER
-   * ---------------------------------- */
-
   async function createServer(
     chatClient: StreamChat,
     _videoClient: StreamVideoClient,
@@ -112,33 +60,38 @@ export function ServerProvider({ children }: { children: ReactNode }) {
   ) {
     const serverId = serverName.toLowerCase().replace(/\s+/g, "-");
 
+    // Create server as a "team" channel
+    const serverChannel = chatClient.channel("team", serverId, {
+      name: serverName,
+      image: serverImage,
+      members,
+    });
+
+    await serverChannel.create();
+
+    // Create default channels
     await chatClient
-      .channel("team", serverId, {
-        name: serverName,
-        image: serverImage,
+      .channel("messaging", `${serverId}-general`, {
+        name: "general",
+        category: "Text Channels",
         members,
       })
       .create();
 
-    const textChannel = chatClient.channel("messaging", `${serverId}-general`, {
-      name: "general",
-      category: "Text Channels",
-      server: serverName,
-      members,
+    await chatClient
+      .channel("messaging", `${serverId}-voice`, {
+        name: "General",
+        category: "Voice Channels",
+        isVoice: true,
+        members,
+      })
+      .create();
+
+    setServer({
+      id: serverId,
+      name: serverName,
+      image: serverImage,
     });
-
-    const voiceChannel = chatClient.channel("messaging", `${serverId}-voice`, {
-      name: "General",
-      category: "Voice Channels",
-      isVoice: true,
-      server: serverName,
-      members,
-    });
-
-    await Promise.all([textChannel.create(), voiceChannel.create()]);
-
-    setServer({ id: serverId, name: serverName, image: serverImage });
-    setChannelsByCategories(groupByCategory([textChannel, voiceChannel]));
   }
 
   return (
@@ -147,7 +100,6 @@ export function ServerProvider({ children }: { children: ReactNode }) {
         server,
         channelsByCategories,
         createServer,
-        changeServer,
       }}
     >
       {children}
