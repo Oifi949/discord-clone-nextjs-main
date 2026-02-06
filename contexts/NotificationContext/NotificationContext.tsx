@@ -19,7 +19,7 @@ type NotificationContextType = {
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
 /* ----------------------------------
- * HELPERS (DECLARE FIRST ✅)
+ * HELPERS
  * ---------------------------------- */
 
 function playSound() {

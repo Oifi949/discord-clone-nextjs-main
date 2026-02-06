@@ -20,11 +20,14 @@ export default function DiscordLikeChannelsPage() {
    * LOAD CHANNELS
    * -------------------------------------------- */
   useEffect(() => {
-    if (!client) return;
+    if (!client || !client.userID) return;
 
     async function loadChannels() {
       const res = await client.queryChannels(
-        { type: "messaging", members: { $in: [client.userID!] } },
+        {
+          type: "messaging",
+          members: { $in: [client.userID] },
+        },
         { created_at: 1 },
         { watch: true },
       );
@@ -38,12 +41,12 @@ export default function DiscordLikeChannelsPage() {
    * CREATE CHANNEL
    * -------------------------------------------- */
   async function createChannel(name: string, isVoice = false) {
-    if (!client) return;
+    if (!client || !client.userID) return;
 
     const channel = client.channel("messaging", {
       name,
       isVoice,
-      members: [client.userID!],
+      members: [client.userID], // ✅ required to avoid BadRequest
     });
 
     await channel.create();
@@ -97,7 +100,10 @@ export default function DiscordLikeChannelsPage() {
           {channels
             .filter((c) => !c.data?.isVoice)
             .map((c) => (
-              <div key={c.id} className="px-2 py-1 rounded hover:bg-[#3f4147]">
+              <div
+                key={c.id}
+                className="px-2 py-1 rounded hover:bg-[#404249] transition-colors cursor-pointer"
+              >
                 # {c.data?.name}
               </div>
             ))}
@@ -112,7 +118,7 @@ export default function DiscordLikeChannelsPage() {
               <button
                 key={c.id}
                 onClick={() => joinVoiceChannel(c)}
-                className="w-full text-left px-2 py-1 rounded hover:bg-[#3f4147]"
+                className="w-full text-left px-2 py-1 rounded hover:bg-[#404249] transition-colors cursor-pointer flex items-center gap-2"
               >
                 🔊 {c.data?.name}
               </button>
@@ -123,14 +129,14 @@ export default function DiscordLikeChannelsPage() {
         <div className="pt-4 space-y-2">
           <button
             onClick={() => createChannel("new-text")}
-            className="w-full bg-[#3f4147] px-2 py-1 rounded text-sm"
+            className="w-full bg-[#404249] px-2 py-1 rounded text-sm hover:bg-[#5865F2] transition-colors"
           >
             + Text Channel
           </button>
 
           <button
             onClick={() => createChannel("new-voice", true)}
-            className="w-full bg-[#3f4147] px-2 py-1 rounded text-sm"
+            className="w-full bg-[#404249] px-2 py-1 rounded text-sm hover:bg-[#5865F2] transition-colors"
           >
             + Voice Channel
           </button>
@@ -149,7 +155,7 @@ export default function DiscordLikeChannelsPage() {
             <p className="text-sm text-gray-400">State: {connectionState}</p>
             <button
               onClick={leaveVoiceChannel}
-              className="bg-red-600 px-4 py-2 rounded"
+              className="bg-red-600 px-4 py-2 rounded hover:bg-red-700 transition-colors"
             >
               Leave
             </button>

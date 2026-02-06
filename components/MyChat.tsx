@@ -13,7 +13,8 @@ import {
 } from "stream-chat-react";
 
 import CustomChannelList from "@/components/ChannelList/CustomChannelList";
-import ServerList, { ServerProvider } from "@/components/ServerList/ServerList";
+import ServerList from "@/components/ServerList/ServerList";
+import { ServerProvider } from "@/contexts/ServerContext";
 import MessageComposer from "@/components/MessageList/MessageComposer/MessageComposer";
 import CustomDateSeparator from "@/components/MessageList/CustomDateSeparator/CustomDateSeparator";
 import CustomMessage from "@/components/MessageList/CustomMessage/CustomMessage";
@@ -59,7 +60,7 @@ export default function MyChat({
     <StreamVideo client={videoClient}>
       <Chat client={chatClient} theme="str-chat__theme-light">
         <section className="flex h-screen w-screen layout">
-          <ServerProvider server={{ name: "main" }}>
+          <ServerProvider>
             <ServerList />
             <ChannelList List={CustomChannelList} sendChannelsToList />
           </ServerProvider>

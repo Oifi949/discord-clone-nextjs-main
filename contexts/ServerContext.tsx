@@ -11,7 +11,7 @@ import { StreamVideoClient } from "@stream-io/video-react-sdk";
 
 type ChannelsByCategory = Map<string, Channel<DefaultStreamChatGenerics>[]>;
 
-type Server = {
+export type Server = {
   id: string;
   name: string;
   image?: string;
@@ -19,6 +19,7 @@ type Server = {
 
 type ServerContextType = {
   server: Server | null;
+  changeServer: (server: Server | null, client: any) => void;
   channelsByCategories: ChannelsByCategory;
 
   createServer: (
@@ -48,9 +49,10 @@ export function ServerProvider({ children }: { children: ReactNode }) {
 
   const [channelsByCategories] = useState<ChannelsByCategory>(new Map());
 
-  /* ----------------------------------
-   * CREATE SERVER (DISCORD STYLE)
-   * ---------------------------------- */
+  function changeServer(newServer: Server | null, _client: any) {
+    setServer(newServer);
+  }
+
   async function createServer(
     chatClient: StreamChat,
     _videoClient: StreamVideoClient,
@@ -60,7 +62,6 @@ export function ServerProvider({ children }: { children: ReactNode }) {
   ) {
     const serverId = serverName.toLowerCase().replace(/\s+/g, "-");
 
-    // Create server as a "team" channel
     const serverChannel = chatClient.channel("team", serverId, {
       name: serverName,
       image: serverImage,
@@ -69,7 +70,6 @@ export function ServerProvider({ children }: { children: ReactNode }) {
 
     await serverChannel.create();
 
-    // Create default channels
     await chatClient
       .channel("messaging", `${serverId}-general`, {
         name: "general",
@@ -98,6 +98,7 @@ export function ServerProvider({ children }: { children: ReactNode }) {
     <ServerContext.Provider
       value={{
         server,
+        changeServer,
         channelsByCategories,
         createServer,
       }}
