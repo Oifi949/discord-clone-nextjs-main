@@ -112,7 +112,7 @@ export default function DiscordLikeChannelsPage() {
    * RENDER
    * -------------------------------------------- */
   return (
-    <div className="flex h-screen">
+    <div className="relative flex h-screen w-64 flex-col bg-[#2b2d31]">
       {/* SIDEBAR */}
       <aside className="w-72 bg-gray-100 p-4 space-y-6">
         <h2 className="font-bold uppercase text-sm text-gray-500">Channels</h2>
@@ -174,7 +174,7 @@ export default function DiscordLikeChannelsPage() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 p-8 pb-20">
+      <main className="flex-1 p-8 pb-20 overflow-y-auto">
         {!activeCall && (
           <p className="text-gray-500">Join a voice channel to start talking</p>
         )}

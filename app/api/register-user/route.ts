@@ -1,32 +1,34 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { StreamChat } from "stream-chat";
 
-export const runtime = "nodejs";
-
 export async function POST(request: Request) {
   try {
-    if (!process.env.STREAM_CHAT_SECRET) {
-      throw new Error("STREAM_CHAT_SECRET is missing");
+
+    console.log("API KEY:", process.env.NEXT_PUBLIC_STREAM_API_KEY);
+    console.log("HAS SECRET:", !!process.env.STREAM_SECRET_KEY);
+    if (!process.env.STREAM_SECRET_KEY) {
+      throw new Error("Missing STREAM_SECRET_KEY");
     }
 
-    const { userId, email } = await request.json();
+    const serverClient = StreamChat.getInstance(
+      process.env.NEXT_PUBLIC_STREAM_API_KEY!,
+      process.env.STREAM_SECRET_KEY
+    );
+
+    const body = await request.json();
+    const { userId, email } = body;
 
     if (!userId || !email) {
-      return Response.json(
-        { error: "Missing userId or email" },
+      return new Response(
+        JSON.stringify({ error: "Missing userId or email" }),
         { status: 400 }
       );
     }
 
-    const serverClient = StreamChat.getInstance(
-      "qgu6ryg3aekm",
-      process.env.STREAM_CHAT_SECRET
-    );
-
     await serverClient.upsertUser({
       id: userId,
-      role: "user",
       name: email,
+      role: "user",
       image: `https://getstream.io/random_png/?id=${userId}&name=${email}`,
     });
 
@@ -36,14 +38,11 @@ export async function POST(request: Request) {
       },
     });
 
-    return Response.json({
-      success: true,
-      userId,
-    });
-  } catch (err) {
-    console.error("[/api/register-user] ERROR:", err);
-    return Response.json(
-      { error: "Internal server error" },
+    return Response.json({ userId, email });
+  } catch (error) {
+    console.error("[/api/register-user] Error:", error);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500 }
     );
   }
