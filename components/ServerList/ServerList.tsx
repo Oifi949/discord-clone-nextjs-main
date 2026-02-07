@@ -48,6 +48,8 @@ const ServerList = () => {
     <div className="bg-dark-gray h-full flex flex-col items-center">
       {/* Home / DM */}
       <button
+        type="button"
+        title="Discord Server"
         className={`block p-3 aspect-square sidebar-icon border-t-2 border-t-gray-300 ${
           activeServer === null ? "selected-icon" : ""
         }`}
